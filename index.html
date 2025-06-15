@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Hostel Entry Form</title>
+</head>
+<body>
+  <h2>Hostel Entry Form</h2>
+  <form id="entry-form">
+    <label>Date:
+      <input type="date" name="date" required>
+    </label><br><br>
+
+    <label>Type:
+      <select id="type" name="type" required onchange="updateDescription()">
+        <option value="Expense">Expense</option>
+        <option value="Income">Income</option>
+      </select>
+    </label><br><br>
+
+    <label>Description:
+      <select id="description" name="description" required onchange="checkOtherDesc()">
+        <option>Loading...</option>
+      </select>
+    </label><br><br>
+
+    <div id="desc-other-box" style="display:none;">
+      <label>Please specify:
+        <input type="text" id="desc-other" name="descOther">
+      </label><br><br>
+    </div>
+
+    <label>Amount:
+      <input type="number" name="amount" required>
+    </label><br><br>
+
+    <label>Upload Receipt Image:
+      <input type="file" id="image" accept="image/*" required>
+    </label><br><br>
+
+    <label>Submitted By:
+      <select id="submitted-by" name="submittedBy" required onchange="checkOtherSubmitter()">
+        <option>Loading...</option>
+      </select>
+    </label><br><br>
+
+    <div id="submitter-other-box" style="display:none;">
+      <label>Please specify:
+        <input type="text" id="submitter-other" name="submitterOther">
+      </label><br><br>
+    </div>
+
+    <button type="submit">Submit</button>
+  </form>
+
+  <p id="status"></p>
+
+  <script>
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbxKKWU8d0CMprrqFuuhCmiZ5kpd4zW9Ct4oSr75qKBG60gzYyaU9BJe1gugI-eUcGE-/exec";
+
+    async function fetchDropdownData() {
+      const res = await fetch(webAppUrl);
+      const data = await res.json();
+
+      const desc = document.getElementById('description');
+      const submitter = document.getElementById('submitted-by');
+
+      desc.innerHTML = "";
+      submitter.innerHTML = "";
+
+      let selectedType = document.getElementById("type").value;
+      let list = selectedType === "Expense" ? data.expense : data.income;
+
+      list.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item;
+        opt.textContent = item;
+        desc.appendChild(opt);
+      });
+
+      const otherDesc = document.createElement("option");
+      otherDesc.value = "Other";
+      otherDesc.textContent = "Other";
+      desc.appendChild(otherDesc);
+
+      // Populate Submitted By
+      data.submittedBy?.forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        submitter.appendChild(opt);
+      });
+
+      const otherSub = document.createElement("option");
+      otherSub.value = "Other";
+      otherSub.textContent = "Other";
+      submitter.appendChild(otherSub);
+    }
+
+    function updateDescription() {
+      fetchDropdownData();
+    }
+
+    function checkOtherDesc() {
+      const selected = document.getElementById("description").value;
+      const box = document.getElementById("desc-other-box");
+      const input = document.getElementById("desc-other");
+      if (selected === "Other") {
+        box.style.display = "block";
+        input.required = true;
+      } else {
+        box.style.display = "none";
+        input.required = false;
+      }
+    }
+
+    function checkOtherSubmitter() {
+      const selected = document.getElementById("submitted-by").value;
+      const box = document.getElementById("submitter-other-box");
+      const input = document.getElementById("submitter-other");
+      if (selected === "Other") {
+        box.style.display = "block";
+        input.required = true;
+      } else {
+        box.style.display = "none";
+        input.required = false;
+      }
+    }
+
+    const form = document.getElementById("entry-form");
+    const status = document.getElementById("status");
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      status.innerText = "Uploading...";
+
+      const imageFile = document.getElementById("image").files[0];
+      const reader = new FileReader();
+
+      reader.onloadend = async function () {
+        const base64Data = reader.result.split(",")[1];
+
+        const data = {
+          date: form.date.value,
+          type: form.type.value,
+          description: form.description.value === "Other" ? form.descOther.value : form.description.value,
+          amount: form.amount.value,
+          submittedBy: form.submittedBy.value === "Other" ? form.submitterOther.value : form.submittedBy.value,
+          imageBase64: base64Data
+        };
+
+        try {
+          const response = await fetch(webAppUrl, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const result = await response.text();
+          status.innerText = result.includes("Success") ? "✅ Entry Saved Successfully!" : "❌ Error: " + result;
+          form.reset();
+          fetchDropdownData();
+        } catch (err) {
+          status.innerText = "❌ Error sending data: " + err;
+        }
+      };
+
+      reader.readAsDataURL(imageFile);
+    });
+
+    // Load initial dropdowns
+    window.onload = fetchDropdownData;
+  </script>
+</body>
+</html>
