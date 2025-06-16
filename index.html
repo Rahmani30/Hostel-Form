@@ -1,177 +1,258 @@
+
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <title>Hostel Entry Form</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f8f9fa;
+    }
+    form {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 500px;
+    }
+    h2 {
+      text-align: center;
+      font-weight: bold;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+      border: none;
+      margin-top: 20px;
+    }
+    #status {
+      text-align: center;
+      margin-top: 15px;
+      font-weight: bold;
+      color: green;
+    }
+  </style>
 </head>
 <body>
-  <h2>Hostel Entry Form</h2>
-  <form id="entry-form">
+  <form id="expense-form">
+    <h2>Hostel Entry Form</h2>
+
     <label>Date:
       <input type="date" name="date" required>
-    </label><br><br>
+    </label>
 
     <label>Type:
-      <select id="type" name="type" required onchange="updateDescription()">
+      <select id="type" name="type" onchange="populateDropdowns()" required>
+        <option value="" disabled selected>-- Please select --</option>
         <option value="Expense">Expense</option>
         <option value="Income">Income</option>
       </select>
-    </label><br><br>
+    </label>
 
     <label>Description:
-      <select id="description" name="description" required onchange="checkOtherDesc()">
-        <option>Loading...</option>
+      <select id="description" name="description" onchange="checkDescription()" required>
+        <option value="" disabled selected>-- Please select --</option>
       </select>
-    </label><br><br>
+    </label>
 
-    <div id="desc-other-box" style="display:none;">
-      <label>Please specify:
-        <input type="text" id="desc-other" name="descOther">
-      </label><br><br>
+    <!-- Only shown for Expense+Other -->
+    <input type="text" id="desc-other" name="desc-other" placeholder="Please specify (optional)" style="display:none;">
+
+    <!-- Only shown for Income+not-Other -->
+    <div id="specify-box" style="display:none;">
+      <label>Specify Income Detail:
+        <select id="specify-input" name="specify-input" required>
+          <option value="" disabled selected>-- Please select --</option>
+        </select>
+      </label>
     </div>
+
+    <!-- Only shown for Income+Other -->
+    <input type="text" id="specify-text" name="specify-text" placeholder="Specify (optional)" style="display:none;">
 
     <label>Amount:
       <input type="number" name="amount" required>
-    </label><br><br>
+    </label>
+
+    <label>Submitted By:
+      <select id="submitter" name="submitter" onchange="checkSubmitterOther()" required>
+        <option value="" disabled selected>-- Please select --</option>
+      </select>
+    </label>
+
+    <input type="text" id="submitter-other" name="submitter-other" placeholder="Please specify" style="display:none;">
 
     <label>Upload Receipt Image:
       <input type="file" id="image" accept="image/*" required>
-    </label><br><br>
-
-    <label>Submitted By:
-      <select id="submitted-by" name="submittedBy" required onchange="checkOtherSubmitter()">
-        <option>Loading...</option>
-      </select>
-    </label><br><br>
-
-    <div id="submitter-other-box" style="display:none;">
-      <label>Please specify:
-        <input type="text" id="submitter-other" name="submitterOther">
-      </label><br><br>
-    </div>
+    </label>
 
     <button type="submit">Submit</button>
+    <p id="status"></p>
   </form>
 
-  <p id="status"></p>
-
   <script>
-    const webAppUrl = "https://script.google.com/macros/s/AKfycbxKKWU8d0CMprrqFuuhCmiZ5kpd4zW9Ct4oSr75qKBG60gzYyaU9BJe1gugI-eUcGE-/exec";
+    const form = document.getElementById('expense-form');
+    const status = document.getElementById('status');
+    const type = document.getElementById('type');
+    const description = document.getElementById('description');
+    const descOther = document.getElementById('desc-other');
+    const specifyBox = document.getElementById('specify-box');
+    const specifyInput = document.getElementById('specify-input');
+    const specifyText = document.getElementById('specify-text');
+    const submitter = document.getElementById('submitter');
+    const submitterOther = document.getElementById('submitter-other');
+    let globalData = {};
 
-    async function fetchDropdownData() {
-      const res = await fetch(webAppUrl);
+    async function fetchData() {
+      const res = await fetch("https://script.google.com/macros/s/AKfycbxKKWU8d0CMprrqFuuhCmiZ5kpd4zW9Ct4oSr75qKBG60gzYyaU9BJe1gugI-eUcGE-/exec");
       const data = await res.json();
+      globalData = data;
+      populateDropdowns();
+      populateSubmitter();
+      populateSpecifyDropdown();
+    }
 
-      const desc = document.getElementById('description');
-      const submitter = document.getElementById('submitted-by');
-
-      desc.innerHTML = "";
-      submitter.innerHTML = "";
-
-      let selectedType = document.getElementById("type").value;
-      let list = selectedType === "Expense" ? data.expense : data.income;
-
-      list.forEach(item => {
+    function populateDropdowns() {
+      const typeVal = type.value;
+      const descList = typeVal === 'Expense' ? globalData.expense : globalData.income;
+      description.innerHTML = '<option value="" disabled selected>-- Please select --</option>';
+      descList.forEach(item => {
         const opt = document.createElement("option");
         opt.value = item;
         opt.textContent = item;
-        desc.appendChild(opt);
+        description.appendChild(opt);
       });
+      const other = document.createElement("option");
+      other.value = "Other";
+      other.textContent = "Other";
+      description.appendChild(other);
+      checkDescription();
+    }
 
-      const otherDesc = document.createElement("option");
-      otherDesc.value = "Other";
-      otherDesc.textContent = "Other";
-      desc.appendChild(otherDesc);
-
-      // Populate Submitted By
-      data.submittedBy?.forEach(name => {
+    function populateSubmitter() {
+      const names = globalData.submittedBy || [];
+      submitter.innerHTML = '<option value="" disabled selected>-- Please select --</option>';
+      names.forEach(name => {
         const opt = document.createElement("option");
         opt.value = name;
         opt.textContent = name;
         submitter.appendChild(opt);
       });
-
-      const otherSub = document.createElement("option");
-      otherSub.value = "Other";
-      otherSub.textContent = "Other";
-      submitter.appendChild(otherSub);
+      const other = document.createElement("option");
+      other.value = "Other";
+      other.textContent = "Other";
+      submitter.appendChild(other);
     }
 
-    function updateDescription() {
-      fetchDropdownData();
+    function populateSpecifyDropdown() {
+      const dList = globalData.studentNames || [];
+      specifyInput.innerHTML = '<option value="" disabled selected>-- Please select --</option>';
+      dList.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item;
+        opt.textContent = item;
+        specifyInput.appendChild(opt);
+      });
     }
 
-    function checkOtherDesc() {
-      const selected = document.getElementById("description").value;
-      const box = document.getElementById("desc-other-box");
-      const input = document.getElementById("desc-other");
-      if (selected === "Other") {
-        box.style.display = "block";
-        input.required = true;
-      } else {
-        box.style.display = "none";
-        input.required = false;
+    function checkDescription() {
+      const typeVal = type.value;
+      const descVal = description.value;
+
+      // Reset all
+      descOther.style.display = "none";
+      specifyBox.style.display = "none";
+      specifyText.style.display = "none";
+
+      if (typeVal === "Income") {
+        if (descVal === "Other") {
+          specifyText.style.display = "inline";
+          specifyInput.required = false;
+        } else {
+          specifyBox.style.display = "block";
+          specifyInput.required = true;
+        }
+      } else if (typeVal === "Expense") {
+        if (descVal === "Other") {
+          descOther.style.display = "inline";
+        }
       }
     }
 
-    function checkOtherSubmitter() {
-      const selected = document.getElementById("submitted-by").value;
-      const box = document.getElementById("submitter-other-box");
-      const input = document.getElementById("submitter-other");
-      if (selected === "Other") {
-        box.style.display = "block";
-        input.required = true;
+    function checkSubmitterOther() {
+      const val = submitter.value;
+      if (val === 'Other') {
+        submitterOther.style.display = 'inline';
+        submitterOther.required = true;
       } else {
-        box.style.display = "none";
-        input.required = false;
+        submitterOther.style.display = 'none';
+        submitterOther.required = false;
+        submitterOther.value = '';
       }
     }
 
-    const form = document.getElementById("entry-form");
-    const status = document.getElementById("status");
-
-    form.addEventListener("submit", async function (e) {
+    form.addEventListener('submit', async function (e) {
       e.preventDefault();
       status.innerText = "Uploading...";
 
-      const imageFile = document.getElementById("image").files[0];
+      const imageFile = document.getElementById('image').files[0];
       const reader = new FileReader();
 
       reader.onloadend = async function () {
-        const base64Data = reader.result.split(",")[1];
-
-        const data = {
+        const base64Data = reader.result.split(',')[1];
+        const finalData = {
           date: form.date.value,
-          type: form.type.value,
-          description: form.description.value === "Other" ? form.descOther.value : form.description.value,
+          type: type.value,
+          description: description.value === 'Other' ? descOther.value : description.value,
           amount: form.amount.value,
-          submittedBy: form.submittedBy.value === "Other" ? form.submitterOther.value : form.submittedBy.value,
+          submittedBy: submitter.value === 'Other' ? submitterOther.value : submitter.value,
+          specify: description.value === 'Other' ? specifyText.value : specifyInput.value,
           imageBase64: base64Data
         };
 
         try {
-          const response = await fetch(webAppUrl, {
+          const res = await fetch("https://script.google.com/macros/s/AKfycbwJTSnLhIvjZJ8-3PfLenNOlCUAiU36URo-Wn6wL752zvFiFpkj-oGbYeboc0G3ctCu/exec", {
             method: 'POST',
-            body: JSON.stringify(data),
-            headers: {
-              'Content-Type': 'application/json'
-            }
+            body: JSON.stringify(finalData),
+            headers: { 'Content-Type': 'application/json' }
           });
-
-          const result = await response.text();
-          status.innerText = result.includes("Success") ? "✅ Entry Saved Successfully!" : "❌ Error: " + result;
+          const result = await res.text();
+          status.innerText = result.includes("Success") ? "✅ Entry saved!" : "❌ Error: " + result;
           form.reset();
-          fetchDropdownData();
+          descOther.style.display = 'none';
+          specifyBox.style.display = 'none';
+          specifyText.style.display = 'none';
+          submitterOther.style.display = 'none';
         } catch (err) {
-          status.innerText = "❌ Error sending data: " + err;
+          status.innerText = "❌ Error: " + err;
         }
       };
 
       reader.readAsDataURL(imageFile);
     });
 
-    // Load initial dropdowns
-    window.onload = fetchDropdownData;
+    fetchData();
   </script>
 </body>
 </html>
